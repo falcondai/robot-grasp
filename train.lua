@@ -1,6 +1,6 @@
 require 'torch'
 require 'nn'
--- require 'cudnn'
+-- require 'cunn'
 require 'image'
 require 'paths'
 npy = require 'npy4th'
@@ -11,10 +11,10 @@ local CROP_SIZE = 128
 torch.manualSeed(3)
 
 local model = require './model'
+-- model:cuda()
+model:training()
 local loss = nn.CrossEntropyCriterion()
 
-local trainF = io.open('splits/train_fn.txt')
-local valF = io.open('splits/val_fn.txt')
 local trainY = npy.loadnpy('splits/train_y.npy')
 local valY = npy.loadnpy('splits/val_y.npy')
 
@@ -22,27 +22,43 @@ local valY = npy.loadnpy('splits/val_y.npy')
 local trainY = trainY + 1
 local valY = valY + 1
 
+-- load the train set
 local trainFn = {}
-for line in trainF:lines() do
+for line in io.open('splits/train_fn.txt'):lines() do
   table.insert(trainFn, line:split(' '))
 end
 local nTrain = #trainFn
-local rgb = torch.Tensor(nTrain, 3, CROP_SIZE, CROP_SIZE)
-local d = torch.Tensor(nTrain, 1, CROP_SIZE, CROP_SIZE)
+local trainRgb = torch.Tensor(nTrain, 3, CROP_SIZE, CROP_SIZE)
+local trainD = torch.Tensor(nTrain, 1, CROP_SIZE, CROP_SIZE)
 for i, row in ipairs(trainFn) do
-  rgb[i] = image.load(row[1])
-  d[i][1] = npy.loadnpy(row[2])
+  trainRgb[i] = image.load(row[1])
+  trainD[i][1] = npy.loadnpy(row[2])
 end
-local trainX = {rgb, d}
-print(trainX)
+local trainX = {trainRgb, trainD}
 
--- local rgb = image.load('processed/pos/0464-000.png')
--- local d = npy.loadnpy('processed/pos/0464-000.npy'):reshape(1, 128, 128)
---
-local yhat = model:forward({rgb, d})
-local cost = loss:forward(yhat, trainY)
--- local dl = loss:backward(yhat, )
--- model:backward()
---
-print(yhat)
--- print(cost)
+-- load the validation set
+local valFn = {}
+for line in io.open('splits/val_fn.txt'):lines() do
+  table.insert(valFn, line:split(' '))
+end
+local nVal = #valFn
+local valRgb = torch.Tensor(nVal, 3, CROP_SIZE, CROP_SIZE)
+local valD = torch.Tensor(nVal, 1, CROP_SIZE, CROP_SIZE)
+for i, row in ipairs(valFn) do
+  valRgb[i] = image.load(row[1])
+  valD[i][1] = npy.loadnpy(row[2])
+  if i == 10 then
+    break
+  end
+end
+local valX = {valRgb, valD}
+
+for i = 1, 100 do
+  model:zeroGradParameters()
+  local yhat = model:forward(trainX)
+  local cost = loss:forward(yhat, trainY)
+  print(cost)
+  local dl = loss:backward(yhat, trainY)
+  model:backward(trainX, dl)
+  model:updateParameters(0.1)
+end

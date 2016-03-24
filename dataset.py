@@ -7,7 +7,7 @@ RAW_HEIGHT = 480
 
 # some dataset statistics
 # 771 images
-# 3477 positive samples
+# 3477 positive samples (65%)
 # 1896 negative samples
 
 def read_label_file(path):
@@ -32,14 +32,16 @@ def convert_pcd(path):
         for _ in xrange(11):
             f.readline()
             pass
-        im = np.ndarray((RAW_HEIGHT, RAW_WIDTH), dtype='f4')
+        im = np.zeros((RAW_HEIGHT, RAW_WIDTH), dtype='f4')
         for l in f:
             d, i = l.split()[-2:]
             d = float(d)
             i = int(i)
             x = i % RAW_WIDTH
             y = i / RAW_WIDTH
-            im[y, x] = d if not np.isnan(d) else 0.
+            im[y, x] = max(0., d)
+            # if d > 0.:
+            #     print d
         return im
 
 def crop_image(img, box, crop_size):
