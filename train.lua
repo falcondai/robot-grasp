@@ -3,9 +3,9 @@ require 'cutorch'
 require 'nn'
 require 'cunn'
 
-local BATCH_SIZE = 1000
+local BATCH_SIZE = 800
 local CROP_SIZE = 128
-local MAX_STEP = 600
+local MAX_STEP = 1000
 
 function accuracy (prediction, target)
   local _, yHat = torch.max(prediction, 2)
@@ -14,7 +14,7 @@ end
 
 print('# of CUDA devices:', cutorch.getDeviceCount())
 print('using device:', cutorch.getDevice())
--- cutorch.setDevice(2)
+print('saving checkpoint models to:', arg[1])
 
 torch.manualSeed(3)
 
@@ -30,9 +30,9 @@ local val = torch.load('val.t7')
 local n = train['y']:size(1)
 print('# of samples', n)
 
-local learningRate = 0.1
+local learningRate = 0.01
 local learningRateDecay = 0.8
-local learningRateDecayPeriod = 200
+local learningRateDecayPeriod = 400
 
 local rgb, d, y
 for step = 1, MAX_STEP do
@@ -41,7 +41,7 @@ for step = 1, MAX_STEP do
   if i < BATCH_SIZE then
     i = 1
   end
-  local j = math.min(i + BATCH_SIZE, n)
+  local j = math.min(i + BATCH_SIZE - 1, n)
   rgb = train['x'][1][{{i, j}}]:cuda()
   d = train['x'][2][{{i, j}}]:cuda()
   y = train['y'][{{i, j}}]:cuda()
@@ -58,8 +58,11 @@ for step = 1, MAX_STEP do
   -- update learning rate
   if step % learningRateDecayPeriod == 0 then
     learningRate = learningRate * learningRateDecay
+  end
+  -- checkpoint the model
+  if step % 200 == 0 then
     model:clearState()
-    torch.save('model.'..step..'.t7', model)
+    torch.save(arg[1]..'/model.'..step..'.t7', model)
   end
 end
 
@@ -75,4 +78,5 @@ local valCost = loss:forward(yHat, y)
 print('val entropy:', valCost)
 print('val acc:', accuracy(yHat, y))
 
-torch.save('model.'..MAX_STEP..'.t7', model)
+model:clearState()
+torch.save(arg[1]..'/model.'..MAX_STEP..'.t7', model)
