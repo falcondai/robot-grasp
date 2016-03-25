@@ -40,8 +40,6 @@ def convert_pcd(path):
             x = i % RAW_WIDTH
             y = i / RAW_WIDTH
             im[y, x] = max(0., d)
-            # if d > 0.:
-            #     print d
         return im
 
 def crop_image(img, box, crop_size):
