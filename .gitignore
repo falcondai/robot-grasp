@@ -3,3 +3,4 @@
 processed/
 data/
 splits/
+*.t7

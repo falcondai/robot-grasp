@@ -54,12 +54,3 @@ def crop_image(img, box, crop_size):
     # crop the image to a fixed size around the bounding box
     return r.crop((RAW_WIDTH/2-crop_size/2, RAW_HEIGHT/2-crop_size/2,
     RAW_WIDTH/2+crop_size/2, RAW_HEIGHT/2+crop_size/2))
-
-# im = convert_pcd('data/cornell-deep-grasp/raw/01/pcd0112.txt')
-# imshow(im)
-# savefig('test.png')
-
-# img = Image.open('data/cornell-deep-grasp/raw/01/pcd0112r.png')
-# for i, box in enumerate(read_label_file('data/cornell-deep-grasp/raw/01/pcd0112cpos.txt')):
-#     nim = crop_image(img, box, 128)
-#     nim.show()

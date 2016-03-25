@@ -24,7 +24,7 @@ shuffle(neg_fns)
 train_pos = pos_fns[::2]
 train_neg = neg_fns[::2]
 val_pos = pos_fns[1::2]
-val_neg = neg_fns[1::1]
+val_neg = neg_fns[1::2]
 
 # set up train/val split folders
 os.mkdir('splits')
@@ -53,9 +53,10 @@ np.save('splits/train_y.npy', asarray(train_y)[ii])
 
 val_fn = val_pos + val_neg
 val_y = [1] * len(val_pos) + [0] * len(val_neg)
-# ii = np.random.permutation(len(val_fn))
+ii = np.random.permutation(len(val_fn))
 with open('splits/val_fn.txt', 'wb') as f:
-    for p in val_fn:
+    for i in ii:
+        p = val_fn[i]
         name = p[:-len('.png')]
         f.write('%s %s\n' % (p, name+'.npy'))
-np.save('splits/val_y.npy', asarray(val_y))
+np.save('splits/val_y.npy', asarray(val_y)[ii])

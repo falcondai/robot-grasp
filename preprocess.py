@@ -43,12 +43,10 @@ for path in glob.glob('%s/*/pcd*[0-9].txt' % args.dataset_path):
         for i, box in enumerate(read_label_file(path[:-len('.txt')]+'cpos.txt')):
             filename = filename_format % (sample_id, i)
             crop_image(cimg, box, CROP_SIZE).save('%s/pos/%s.png' % (args.processed_dataset_path, filename))
-            # crop_image(dimg, box, CROP_SIZE).save('%s/pos/%s.tiff' % (args.processed_dataset_path, filename))
             np.save('%s/pos/%s.npy' % (args.processed_dataset_path, filename), np.reshape(crop_image(dimg, box, CROP_SIZE).getdata(), (CROP_SIZE, CROP_SIZE)))
 
         # negative grasps
         for i, box in enumerate(read_label_file(path[:-len('.txt')]+'cneg.txt')):
             filename = filename_format % (sample_id, i)
             crop_image(cimg, box, CROP_SIZE).save('%s/neg/%s.png' % (args.processed_dataset_path, filename))
-            # crop_image(dimg, box, CROP_SIZE).save('%s/neg/%s.tiff' % (args.processed_dataset_path, filename))
             np.save('%s/neg/%s.npy' % (args.processed_dataset_path, filename), np.reshape(crop_image(dimg, box, CROP_SIZE).getdata(), (CROP_SIZE, CROP_SIZE)))

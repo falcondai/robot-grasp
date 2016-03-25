@@ -1,64 +1,78 @@
 require 'torch'
+require 'cutorch'
 require 'nn'
--- require 'cunn'
-require 'image'
-require 'paths'
-npy = require 'npy4th'
+require 'cunn'
 
-local BATCH_SIZE = 128
+local BATCH_SIZE = 1000
 local CROP_SIZE = 128
+local MAX_STEP = 600
+
+function accuracy (prediction, target)
+  local _, yHat = torch.max(prediction, 2)
+  return yHat:eq(target):mean()
+end
+
+print('# of CUDA devices:', cutorch.getDeviceCount())
+print('using device:', cutorch.getDevice())
+-- cutorch.setDevice(2)
 
 torch.manualSeed(3)
 
 local model = require './model'
--- model:cuda()
+model:cuda()
 model:training()
 local loss = nn.CrossEntropyCriterion()
+loss:cuda()
 
-local trainY = npy.loadnpy('splits/train_y.npy')
-local valY = npy.loadnpy('splits/val_y.npy')
+local train = torch.load('train.t7')
+local val = torch.load('val.t7')
 
--- lua is 1-index
-local trainY = trainY + 1
-local valY = valY + 1
+local n = train['y']:size(1)
+print('# of samples', n)
 
--- load the train set
-local trainFn = {}
-for line in io.open('splits/train_fn.txt'):lines() do
-  table.insert(trainFn, line:split(' '))
-end
-local nTrain = #trainFn
-local trainRgb = torch.Tensor(nTrain, 3, CROP_SIZE, CROP_SIZE)
-local trainD = torch.Tensor(nTrain, 1, CROP_SIZE, CROP_SIZE)
-for i, row in ipairs(trainFn) do
-  trainRgb[i] = image.load(row[1])
-  trainD[i][1] = npy.loadnpy(row[2])
-end
-local trainX = {trainRgb, trainD}
+local learningRate = 0.1
+local learningRateDecay = 0.8
+local learningRateDecayPeriod = 200
 
--- load the validation set
-local valFn = {}
-for line in io.open('splits/val_fn.txt'):lines() do
-  table.insert(valFn, line:split(' '))
-end
-local nVal = #valFn
-local valRgb = torch.Tensor(nVal, 3, CROP_SIZE, CROP_SIZE)
-local valD = torch.Tensor(nVal, 1, CROP_SIZE, CROP_SIZE)
-for i, row in ipairs(valFn) do
-  valRgb[i] = image.load(row[1])
-  valD[i][1] = npy.loadnpy(row[2])
-  if i == 10 then
-    break
+local rgb, d, y
+for step = 1, MAX_STEP do
+  -- construct mini-batch
+  local i = step * BATCH_SIZE % n
+  if i < BATCH_SIZE then
+    i = 1
+  end
+  local j = math.min(i + BATCH_SIZE, n)
+  rgb = train['x'][1][{{i, j}}]:cuda()
+  d = train['x'][2][{{i, j}}]:cuda()
+  y = train['y'][{{i, j}}]:cuda()
+
+  -- compute gradient
+  model:zeroGradParameters()
+  local yHat = model:forward({rgb, d})
+  local cost = loss:forward(yHat, y)
+  print(step, learningRate, cost)
+  local dl = loss:backward(yHat, y)
+  model:backward({rgb, d}, dl)
+  model:updateParameters(learningRate)
+
+  -- update learning rate
+  if step % learningRateDecayPeriod == 0 then
+    learningRate = learningRate * learningRateDecay
+    model:clearState()
+    torch.save('model.'..step..'.t7', model)
   end
 end
-local valX = {valRgb, valD}
 
-for i = 1, 100 do
-  model:zeroGradParameters()
-  local yhat = model:forward(trainX)
-  local cost = loss:forward(yhat, trainY)
-  print(cost)
-  local dl = loss:backward(yhat, trainY)
-  model:backward(trainX, dl)
-  model:updateParameters(0.1)
-end
+-- evaluate on val
+model:evaluate()
+
+rgb = val['x'][1][{{1,1000}}]:cuda()
+d = val['x'][2][{{1,1000}}]:cuda()
+y = val['y'][{{1,1000}}]:cuda()
+local yHat = model:forward({rgb, d})
+
+local valCost = loss:forward(yHat, y)
+print('val entropy:', valCost)
+print('val acc:', accuracy(yHat, y))
+
+torch.save('model.'..MAX_STEP..'.t7', model)
