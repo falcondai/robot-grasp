@@ -5,10 +5,11 @@ from PIL import Image, ImageChops
 RAW_WIDTH = 640
 RAW_HEIGHT = 480
 
-# some dataset statistics
-# 771 images
-# 3477 positive samples (65%)
-# 1896 negative samples
+# some dataset statistics for the Cornell grasp dataset:
+# http://pr.cs.cornell.edu/grasping/rect_data/data.php
+# dataset statistics:
+# of images: 885
+# of labeled grasps: 8019 positive: 5110 (0.64) negative: 2909 (0.36)
 
 def read_label_file(path):
     with open(path) as f:

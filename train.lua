@@ -2,10 +2,11 @@ require 'torch'
 require 'cutorch'
 require 'nn'
 require 'cunn'
+require 'paths'
 
-local BATCH_SIZE = 800
+local BATCH_SIZE = tonumber(arg[2]) or 800
 local CROP_SIZE = 128
-local MAX_STEP = 1000
+local MAX_STEP = tonumber(arg[3]) or 1000
 
 function accuracy (prediction, target)
   local _, yHat = torch.max(prediction, 2)
@@ -15,6 +16,7 @@ end
 print('# of CUDA devices:', cutorch.getDeviceCount())
 print('using device:', cutorch.getDevice())
 print('saving checkpoint models to:', arg[1])
+paths.mkdir(arg[1])
 
 torch.manualSeed(3)
 

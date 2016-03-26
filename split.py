@@ -21,10 +21,14 @@ neg_fns.sort()
 shuffle(pos_fns)
 shuffle(neg_fns)
 
-train_pos = pos_fns[::2]
-train_neg = neg_fns[::2]
-val_pos = pos_fns[1::2]
-val_neg = neg_fns[1::2]
+# using 4:1 train:val ratio as the paper
+pos_split = int(floor(len(pos_fns) * 4. / 5.))
+neg_split = int(floor(len(neg_fns) * 4. / 5.))
+
+train_pos = pos_fns[:pos_split]
+train_neg = neg_fns[:neg_split]
+val_pos = pos_fns[pos_split:]
+val_neg = neg_fns[neg_split:]
 
 # set up train/val split folders
 os.mkdir('splits')
@@ -60,3 +64,7 @@ with open('splits/val_fn.txt', 'wb') as f:
         name = p[:-len('.png')]
         f.write('%s %s\n' % (p, name+'.npy'))
 np.save('splits/val_y.npy', asarray(val_y)[ii])
+
+print 'train/val split'
+n_train = pos_split + neg_split
+print 'train: %i val: %i' % (n_train, len(pos_fns)+len(neg_fns)-n_train)
