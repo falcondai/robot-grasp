@@ -6,7 +6,7 @@ require 'paths'
 
 local BATCH_SIZE = tonumber(arg[2]) or 800
 local CROP_SIZE = 128
-local MAX_STEP = tonumber(arg[3]) or 1000
+local MAX_STEP = tonumber(arg[3]) or 400
 
 function accuracy (prediction, target)
   local _, yHat = torch.max(prediction, 2)
@@ -20,7 +20,8 @@ paths.mkdir(arg[1])
 
 torch.manualSeed(3)
 
-local model = require './model'
+local model = require './model-late-concat'
+print(model)
 model:cuda()
 model:training()
 local loss = nn.CrossEntropyCriterion()
@@ -32,7 +33,7 @@ local val = torch.load('val.t7')
 local n = train['y']:size(1)
 print('# of samples', n)
 
-local learningRate = 0.01
+local learningRate = 0.05
 local learningRateDecay = 0.8
 local learningRateDecayPeriod = 400
 
@@ -52,10 +53,11 @@ for step = 1, MAX_STEP do
   model:zeroGradParameters()
   local yHat = model:forward({rgb, d})
   local cost = loss:forward(yHat, y)
-  print(step, learningRate, cost)
   local dl = loss:backward(yHat, y)
   model:backward({rgb, d}, dl)
+  local _, grad = model:getParameters()
   model:updateParameters(learningRate)
+  print(step, learningRate, cost, grad:norm())
 
   -- update learning rate
   if step % learningRateDecayPeriod == 0 then

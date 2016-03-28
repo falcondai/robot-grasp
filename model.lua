@@ -15,7 +15,10 @@ model:add(nn.ReLU(true))
 model:add(nn.SpatialConvolution(64, 128, 3, 3, 2, 2, 1, 1))
 model:add(nn.ReLU(true))
 
-model:add(nn.Reshape(32*32*128))
-model:add(nn.Linear(32*32*128, 2))
+model:add(nn.SpatialConvolution(128, 64, 3, 3, 2, 2, 1, 1))
+model:add(nn.ReLU(true))
+
+model:add(nn.Reshape(16*16*64))
+model:add(nn.Linear(16*16*64, 2))
 
 return model
