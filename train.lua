@@ -2,6 +2,7 @@ require 'torch'
 require 'cutorch'
 require 'nn'
 require 'cunn'
+require 'optim'
 require 'paths'
 
 local BATCH_SIZE = tonumber(arg[2]) or 800
@@ -33,11 +34,23 @@ local val = torch.load('val.t7')
 local n = train['y']:size(1)
 print('# of samples', n)
 
-local learningRate = 0.05
-local learningRateDecay = 0.8
-local learningRateDecayPeriod = 400
+local mParams, mGrad = model:getParameters()
+local cost
+function _fgrad (rgb, d, y)
+  function fgrad (params)
+    mParams:copy(params)
+    model:zeroGradParameters()
+    local yHat = model:forward({rgb, d})
+    cost = loss:forward(yHat, y)
+    local dl = loss:backward(yHat, y)
+    model:backward({rgb, d}, dl)
+    return cost, mGrad
+  end
+  return fgrad
+end
 
 local rgb, d, y
+local state = {}
 for step = 1, MAX_STEP do
   -- construct mini-batch
   local i = step * BATCH_SIZE % n
@@ -50,19 +63,22 @@ for step = 1, MAX_STEP do
   y = train['y'][{{i, j}}]:cuda()
 
   -- compute gradient
-  model:zeroGradParameters()
-  local yHat = model:forward({rgb, d})
-  local cost = loss:forward(yHat, y)
-  local dl = loss:backward(yHat, y)
-  model:backward({rgb, d}, dl)
-  local _, grad = model:getParameters()
-  model:updateParameters(learningRate)
-  print(step, learningRate, cost, grad:norm())
+  -- model:zeroGradParameters()
+  -- local yHat = model:forward({rgb, d})
+  -- local cost = loss:forward(yHat, y)
+  -- local dl = loss:backward(yHat, y)
+  -- model:backward({rgb, d}, dl)
+  -- local _, grad = model:getParameters()
+  -- model:updateParameters(learningRate)
+  -- print(step, learningRate, cost, grad:norm())
 
-  -- update learning rate
-  if step % learningRateDecayPeriod == 0 then
-    learningRate = learningRate * learningRateDecay
-  end
+  -- -- update learning rate
+  -- if step % learningRateDecayPeriod == 0 then
+  --   learningRate = learningRate * learningRateDecay
+  -- end
+  optim.adam(_fgrad(rgb, d, y), mParams, state)
+  print(step, cost, mGrad:norm())
+
   -- checkpoint the model
   if step % 200 == 0 then
     model:clearState()
