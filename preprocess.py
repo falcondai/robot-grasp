@@ -26,19 +26,28 @@ try:
 except:
     pass
 
+obj_cat = {}
+with open('%s/processedData/z.txt' % args.dataset_path) as description_f:
+    for line in description_f:
+        sid, obj_id, category = line.split()[:3]
+        obj_cat[sid] = (obj_id, category)
+
 # file format string
 # <pos|neg>/<original image id>-<bounding box id>.<png|tiff>
 filename_format = '%s-%03i'
 
-xid = 0
 dimg = Image.new('F', (RAW_WIDTH, RAW_HEIGHT))
 n_img = 0
 n_pos = 0
 n_neg = 0
+objs = set()
+cats = set()
 for path in glob.glob('%s/*/pcd*[0-9].txt' % args.dataset_path):
     print path
     n_img += 1
     sample_id = path[-len('1234.txt'):-len('.txt')]
+    objs.add(obj_cat[sample_id][0])
+    cats.add(obj_cat[sample_id][1])
     dim = convert_pcd(path)
     # replace NaN with 0
     dimg.putdata(np.nan_to_num(dim.flatten() * DEPTH_SCALE_FACTOR))
@@ -60,5 +69,7 @@ for path in glob.glob('%s/*/pcd*[0-9].txt' % args.dataset_path):
 n_grasp = n_pos + n_neg
 print
 print 'dataset statistics:'
+print '# of objects:', len(objs)
+print '# of object categories:', len(cats)
 print '# of images:', n_img
 print '# of labeled grasps: %i positive: %i (%.2f) negative: %i (%.2f)' % (n_grasp, n_pos, n_pos * 1./n_grasp, n_neg, n_neg * 1./n_grasp)

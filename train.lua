@@ -21,7 +21,7 @@ paths.mkdir(arg[1])
 
 torch.manualSeed(3)
 
-local model = require './model-late-concat'
+local model = require './model'
 print(model)
 model:cuda()
 model:training()
@@ -62,20 +62,6 @@ for step = 1, MAX_STEP do
   d = train['x'][2][{{i, j}}]:cuda()
   y = train['y'][{{i, j}}]:cuda()
 
-  -- compute gradient
-  -- model:zeroGradParameters()
-  -- local yHat = model:forward({rgb, d})
-  -- local cost = loss:forward(yHat, y)
-  -- local dl = loss:backward(yHat, y)
-  -- model:backward({rgb, d}, dl)
-  -- local _, grad = model:getParameters()
-  -- model:updateParameters(learningRate)
-  -- print(step, learningRate, cost, grad:norm())
-
-  -- -- update learning rate
-  -- if step % learningRateDecayPeriod == 0 then
-  --   learningRate = learningRate * learningRateDecay
-  -- end
   optim.adam(_fgrad(rgb, d, y), mParams, state)
   print(step, cost, mGrad:norm())
 
