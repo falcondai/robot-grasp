@@ -26,14 +26,15 @@ print(model)
 model:cuda()
 model:training()
 
+local loss = nn.ParallelCriterion()
 local classLoss = nn.CrossEntropyCriterion()
-classLoss:cuda()
 local depthLoss = nn.MSECriterion()
-depthLoss:cuda()
 local lambda = 0.1
+loss:add(classLoss)
+loss:add(depthLoss, lambda)
+loss:cuda()
 
 local train = torch.load('train.t7')
-local val = torch.load('val.t7')
 
 local n = train['y']:size(1)
 print('# of samples', n)
@@ -45,17 +46,11 @@ function _fgrad (rgb, d, y)
     mParams:copy(params)
     model:zeroGradParameters()
     local yHat = model:forward(rgb)
-    -- classCost = classLoss:forward(yHat[1], y)
-    -- depthCost = depthLoss:forward(yHat[2], d)
-    depthCost = depthLoss:forward(yHat, d)
-    -- cost = classCost + lambda * depthCost
-    cost = depthCost
-    -- local classDl = classLoss:backward(yHat[1], y)
-    -- local depthDl = depthLoss:backward(yHat[2], d)
-    local depthDl = depthLoss:backward(yHat, d)
-    -- model:backward(rgb, classDl)
-    -- model:backward(rgb, lambda * depthDl)
-    model:backward(rgb, depthDl)
+    classCost = classLoss:forward(yHat[1], y)
+    depthCost = depthLoss:forward(yHat[2], d)
+    cost = loss:forward(yHat, {y, d})
+    local dl = loss:backward(yHat, {y, d})
+    model:backward(rgb, dl)
     return cost, mGrad
   end
   return fgrad
@@ -76,8 +71,7 @@ for step = 1, MAX_STEP do
   y = train['y'][{{i, j}}]:cuda()
 
   optim.adam(_fgrad(rgb, d, y), mParams, state)
-  -- print(step, cost, classCost, depthCost, mGrad:norm())
-  print(step, cost, mGrad:norm())
+  print(step, cost, classCost, depthCost, mGrad:norm())
 
   -- checkpoint the model
   if step % 200 == 0 then
