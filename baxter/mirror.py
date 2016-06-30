@@ -60,29 +60,23 @@ def main():
         # print 'position:', data.position, 'force:', data.force
         measurements['grip_force'] = data.force
         measurements['grip_gap'] = data.position
-        pass
 
     def display_ir(data):
         # print 'left range:', data.range
         measurements['ir_range'] = data.range
-        pass
 
     def display_cam(data):
         img = PIL_Image.frombytes('RGBA', (data.width, data.height), data.data)
-        img.save('cam.png')
         draw = PIL_ImageDraw.Draw(img)
         draw.multiline_text((100, 100), 'distance: %.4f\ngrip gap: %.2f\ngrip force: %.4f\n' % (measurements['ir_range'], measurements['grip_gap'], measurements['grip_force']))
         data.data = img.tobytes()
         pub.publish(data)
 
-
     rs = baxter_interface.RobotEnable(CHECK_VERSION)
     try:
         rs.enable()
-        if not grip_left.calibrated:
-            grip_left.calibrate()
-        if not grip_right.calibrated:
-            grip_right.calibrate()
+        grip_left.calibrate()
+        grip_right.calibrate()
         rospy.Subscriber('/robot/digital_io/right_lower_button/state', DigitalIOState, close_grippers)
         rospy.Subscriber('/robot/digital_io/right_upper_button/state', DigitalIOState, open_grippers)
         rospy.Subscriber('/robot/joint_states', JointState, change_left_limb)
