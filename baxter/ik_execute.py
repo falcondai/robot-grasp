@@ -99,28 +99,7 @@ def get_ik_joints(target_x, target_y, initial_z, target_z, n_steps):
 
     return [j for v, j in zip(resp.isValid, resp.joints) if v]
 
-
-def main():
-    rospy.init_node('execute')
-    rs = baxter_interface.RobotEnable(CHECK_VERSION)
-    rs.enable()
-
-    arm = baxter_interface.Limb('left')
-    gripper = baxter_interface.Gripper('left')
-
-    gripper.calibrate()
-
-    def open_grippers(msg):
-        if msg.state == DigitalIOState.PRESSED:
-            gripper.open()
-    rospy.Subscriber('/robot/digital_io/left_upper_button/state', DigitalIOState, open_grippers)
-
-    # target position
-    target_x = 0.7
-    target_y = 0.3
-    initial_z = -0.1
-    target_z = -0.4
-
+def planar_grasp(arm, gripper, target_x, target_y, initial_z, target_z, grasp_range_threshold=0.13):
     # build trajectory
     traj = Trajectory('left')
     rospy.on_shutdown(traj.stop)
@@ -132,8 +111,8 @@ def main():
 
     global sub
     def near_object(msg):
-        # print 'range', msg.range
-        if msg.range < 0.17:
+        print 'range', msg.range
+        if msg.range < grasp_range_threshold:
             global sub
             sub.unregister()
             print 'near object'
@@ -148,14 +127,38 @@ def main():
             ss = [s[x] for x in traj2._goal.trajectory.joint_names]
             traj2.add_point(ss, 0.)
             for j, joint in enumerate(get_ik_joints(target_x, target_y, current_z, initial_z, 10)):
-                traj2.add_point(joint.position, 0.2 * j)
+                traj2.add_point(joint.position, 0.2 * j + 1.)
             traj2.start()
             # gripper.open()
 
     sub = rospy.Subscriber('/robot/range/left_hand_range/state', Range, near_object)
+
     # move arm
-    # arm.move_to_joint_positions(initial_pose)
     traj.start()
+
+def main():
+    rospy.init_node('execute')
+    rs = baxter_interface.RobotEnable(CHECK_VERSION)
+    rs.enable()
+
+    arm = baxter_interface.Limb('left')
+    gripper = baxter_interface.Gripper('left')
+
+    gripper.calibrate()
+
+    def open_grippers(msg):
+        if msg.state == DigitalIOState.PRESSED:
+            gripper.open()
+
+    rospy.Subscriber('/robot/digital_io/left_upper_button/state', DigitalIOState, open_grippers)
+
+    # target position
+    target_x = 0.7
+    target_y = 0.3
+    initial_z = 0.1
+    target_z = -0.17
+
+    planar_grasp(arm, gripper, target_x, target_y, initial_z, target_z)
     rospy.spin()
     print 'executed trajectory'
 
