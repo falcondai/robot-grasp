@@ -1,6 +1,9 @@
 import os
 import tensorflow as tf
 
+def convert_joint_to_dict(joint):
+    return dict(zip(joint.name, joint.position))
+
 def restore_vars(saver, sess, checkpoint_dir):
     """ Restore saved net, global score and step, and epsilons OR
     create checkpoint directory for later storage. """

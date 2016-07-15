@@ -3,7 +3,7 @@ import tensorflow as tf
 import torchfile
 
 import numpy as np
-import time
+import time, sys
 
 from model import build_model
 from util import *
@@ -11,24 +11,26 @@ from util import *
 # constants
 width = 128
 loss_lambda = 0.1
-checkpoint_dir = 'checkpoints-dev'
+checkpoint_dir = sys.argv[1]
 
 # model
-grasp_class_prediction, depth_prediction, logit, grasp_image_ph, keep_prob_ph = build_model(width)
+# grasp_class_prediction, depth_prediction, logit, grasp_image_ph, keep_prob_ph = build_model(width)
+grasp_class_prediction, logit, grasp_image_ph, keep_prob_ph = build_model(width)
 depth_image_ph =  tf.placeholder('float', [None, width, width, 1])
 grasp_class_ph =  tf.placeholder('int64', [None])
 
 # loss
 grasp_class_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logit, grasp_class_ph), name='grasp_class_loss')
-depth_loss = tf.reduce_mean(tf.square(depth_image_ph - depth_prediction), name='depth_loss')
-combined_loss = (1. - loss_lambda) * grasp_class_loss + loss_lambda * depth_loss
+# depth_loss = tf.reduce_mean(tf.square(depth_image_ph - depth_prediction), name='depth_loss')
+# combined_loss = (1. - loss_lambda) * grasp_class_loss + loss_lambda * depth_loss
+combined_loss = grasp_class_loss
 
 # optimization
-batch = 32
-n_eval_interval = 1
+batch = int(sys.argv[2])
+n_eval_interval = int(sys.argv[3])
 n_train_step = 10**3
 global_step = tf.Variable(0, trainable=False, name='global_step')
-initial_learning_rate = 0.5
+initial_learning_rate = 0.001
 decay_steps = 64
 decay_rate = 0.9
 momentum = 0.5
@@ -44,7 +46,7 @@ accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 # summary
 tf.scalar_summary('learning_rate', learning_rate)
 tf.scalar_summary('grasp_loss', grasp_class_loss)
-tf.scalar_summary('depth_loss', depth_loss)
+# tf.scalar_summary('depth_loss', depth_loss)
 tf.scalar_summary('loss', combined_loss)
 tf.scalar_summary('accuracy', accuracy)
 summary_op = tf.merge_all_summaries()
@@ -55,7 +57,7 @@ def main():
         tf.set_random_seed(1234)
         np.random.seed(123)
 
-        writer = tf.train.SummaryWriter('tf-log/%d' % time.time(), sess.graph)
+        writer = tf.train.SummaryWriter('tf-log/%d' % time.time(), sess.graph_def)
 
         restore_vars(saver, sess, checkpoint_dir)
 
@@ -70,28 +72,35 @@ def main():
 
             ind = np.random.choice(n, batch, replace=False)
             rgb_image = train_data['x'][0][ind].transpose(0, 2, 3, 1)
-            d_image = train_data['x'][1][ind].transpose(0, 2, 3, 1)
+            # d_image = train_data['x'][1][ind].transpose(0, 2, 3, 1)
             grasp_class = train_data['y'][ind] - 1
 
             if i % n_eval_interval == 0:
                 val_feed = {
                     grasp_image_ph: rgb_image,
                     grasp_class_ph: grasp_class,
-                    depth_image_ph: d_image,
+                    # depth_image_ph: d_image,
                     keep_prob_ph: 1.,
                 }
+
+                # print logit.eval(feed_dict=val_feed)
                 print 'grasp loss', grasp_class_loss.eval(feed_dict=val_feed)
-                print 'depth loss', depth_loss.eval(feed_dict=val_feed)
+                # print 'depth loss', depth_loss.eval(feed_dict=val_feed)
                 print 'accuracy', accuracy.eval(feed_dict=val_feed)
                 writer.add_summary(sess.run(summary_op, feed_dict=val_feed), i)
+                saver.save(sess, checkpoint_dir + '/model', global_step=i)
 
+            # train
             train_feed = {
                 grasp_image_ph: rgb_image,
                 grasp_class_ph: grasp_class,
-                depth_image_ph: d_image,
+                # depth_image_ph: d_image,
                 keep_prob_ph: 0.8,
             }
             train_op.run(feed_dict=train_feed)
+
+        # save the model
+        saver.save(sess, checkpoint_dir + '/model', global_step=i)
 
 if __name__ == '__main__':
     main()

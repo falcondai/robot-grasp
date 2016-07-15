@@ -25,11 +25,11 @@ from sensor_msgs.msg import JointState, Range, Image
 from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryGoal
 from trajectory_msgs.msg import JointTrajectoryPoint
 
-from PIL import Image as PIL_Image
-from PIL import ImageDraw as PIL_ImageDraw
+# from PIL import Image as PIL_Image
+# from PIL import ImageDraw as PIL_ImageDraw
 import numpy as np
-
-
+import cv2
+from cv_bridge import CvBridge
 
 class Trajectory(object):
     def __init__(self, limb):
@@ -76,17 +76,21 @@ class Trajectory(object):
         self._goal.trajectory.joint_names = [limb + '_' + joint for joint in \
             ['s0', 's1', 'e0', 'e1', 'w0', 'w1', 'w2']]
 
-def get_ik_joints(target_x, target_y, initial_z, target_z, n_steps):
+def get_ik_joints(target_x, target_y, initial_z, target_z, target_theta, n_steps):
     ns = "ExternalTools/left/PositionKinematicsNode/IKService"
     iksvc = rospy.ServiceProxy(ns, SolvePositionIK)
     ikreq = SolvePositionIKRequest(seed_mode=SolvePositionIKRequest.SEED_CURRENT)
     hdr = Header(stamp=rospy.Time.now(), frame_id='base')
+
+    qx = np.sin(target_theta * 0.5)
+    qy = np.cos(target_theta * 0.5)
+
     for z in np.arange(initial_z, target_z, (target_z-initial_z)/n_steps):
         pose = PoseStamped(
             header=hdr,
             pose=Pose(
                 position=Point( x=target_x, y=target_y, z=z, ),
-                orientation=Quaternion( x=0., y=1., z=0., w=0., ),
+                orientation=Quaternion( x=qx, y=qy, z=0., w=0., ),
             ),
         )
         ikreq.pose_stamp.append(pose)
@@ -99,42 +103,43 @@ def get_ik_joints(target_x, target_y, initial_z, target_z, n_steps):
 
     return [j for v, j in zip(resp.isValid, resp.joints) if v]
 
-def planar_grasp(arm, gripper, target_x, target_y, initial_z, target_z, grasp_range_threshold=0.13):
+def planar_grasp(arm, gripper, target_x, target_y, initial_z, target_z, target_theta, grasp_range_threshold=0.13, n_steps=20):
     # build trajectory
     traj = Trajectory('left')
     rospy.on_shutdown(traj.stop)
     current_angles = [arm.joint_angle(joint) for joint in arm.joint_names()]
     traj.add_point(current_angles, 0.0)
 
-    for i, joint in enumerate(get_ik_joints(target_x, target_y, initial_z, target_z, 100)):
-        traj.add_point(joint.position, 5. + 0.1 * i)
+    for i, joint in enumerate(get_ik_joints(target_x, target_y, initial_z, target_z, target_theta, n_steps)):
+        traj.add_point(joint.position, 1. + 0.1 * i)
 
     global sub
     def near_object(msg):
-        print 'range', msg.range
+        # print 'range', msg.range
         if msg.range < grasp_range_threshold:
             global sub
             sub.unregister()
             print 'near object'
             traj.stop()
             gripper.close()
+            # wait for the gripper to close
             rospy.sleep(1.)
 
-            # pick up
+            # lift arm
             traj2 = Trajectory('left')
             s = arm.joint_angles()
             current_z = arm.endpoint_pose()['position'].z
             ss = [s[x] for x in traj2._goal.trajectory.joint_names]
             traj2.add_point(ss, 0.)
-            for j, joint in enumerate(get_ik_joints(target_x, target_y, current_z, initial_z, 10)):
+            for j, joint in enumerate(get_ik_joints(target_x, target_y, current_z, initial_z, target_theta, 10)):
                 traj2.add_point(joint.position, 0.2 * j + 1.)
             traj2.start()
-            # gripper.open()
 
     sub = rospy.Subscriber('/robot/range/left_hand_range/state', Range, near_object)
 
     # move arm
     traj.start()
+    return traj
 
 def main():
     rospy.init_node('execute')
@@ -157,8 +162,9 @@ def main():
     target_y = 0.3
     initial_z = 0.1
     target_z = -0.17
+    target_theta = np.pi / 4
 
-    planar_grasp(arm, gripper, target_x, target_y, initial_z, target_z)
+    planar_grasp(arm, gripper, target_x, target_y, initial_z, target_z, target_theta)
     rospy.spin()
     print 'executed trajectory'
 
