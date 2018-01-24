@@ -43,6 +43,7 @@ To train a reasonable grasp evaluator, we treated the evaluation problem as a bi
 
 ```
 python2 preprocess.py
+python2 split.py
 th prepareData.lua
 python2 train.py logs 64 10
 ```
@@ -52,7 +53,10 @@ python2 train.py logs 64 10
 ### training
 
 
-## authors / maintainers
+## author
 
 Falcon Dai (dai@ttic.edu)
+
+### contributors
+
 [Andrew Hundt](ATHundt@gmail.com)
