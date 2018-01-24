@@ -20,7 +20,7 @@ depth_image_ph =  tf.placeholder('float', [None, width, width, 1])
 grasp_class_ph =  tf.placeholder('int64', [None])
 
 # loss
-grasp_class_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logit, grasp_class_ph), name='grasp_class_loss')
+grasp_class_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logit, labels=grasp_class_ph), name='grasp_class_loss')
 # depth_loss = tf.reduce_mean(tf.square(depth_image_ph - depth_prediction), name='depth_loss')
 # combined_loss = (1. - loss_lambda) * grasp_class_loss + loss_lambda * depth_loss
 combined_loss = grasp_class_loss
@@ -44,12 +44,12 @@ correct_prediction = tf.equal(tf.argmax(grasp_class_prediction, 1), grasp_class_
 accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
 # summary
-tf.scalar_summary('learning_rate', learning_rate)
-tf.scalar_summary('grasp_loss', grasp_class_loss)
-# tf.scalar_summary('depth_loss', depth_loss)
-tf.scalar_summary('loss', combined_loss)
-tf.scalar_summary('accuracy', accuracy)
-summary_op = tf.merge_all_summaries()
+tf.summary.scalar('learning_rate', learning_rate)
+tf.summary.scalar('grasp_loss', grasp_class_loss)
+# tf.summary.scalar('depth_loss', depth_loss)
+tf.summary.scalar('loss', combined_loss)
+tf.summary.scalar('accuracy', accuracy)
+summary_op = tf.summary.merge_all()
 
 def main():
     saver = tf.train.Saver(max_to_keep=5, keep_checkpoint_every_n_hours=1)
@@ -57,7 +57,7 @@ def main():
         tf.set_random_seed(1234)
         np.random.seed(123)
 
-        writer = tf.train.SummaryWriter('tf-log/%d' % time.time(), sess.graph_def)
+        writer = tf.summary.FileWriter('tf-log/%d' % time.time(), sess.graph_def)
 
         restore_vars(saver, sess, checkpoint_dir)
 

@@ -2,6 +2,24 @@ import glob
 from pylab import *
 import os
 from os import path
+import errno
+
+
+def mkdir_p(path):
+    """Create the specified path on the filesystem like the `mkdir -p` command
+
+    Creates one or more filesystem directory levels as needed,
+    and does not return an error if the directory already exists.
+    """
+    # http://stackoverflow.com/questions/600268/mkdir-p-functionality-in-python
+    try:
+        os.makedirs(path)
+    except OSError as exc:  # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
+
 
 def ln(fns, dst_dir):
     for p in fns:
@@ -31,12 +49,10 @@ val_pos = pos_fns[pos_split:]
 val_neg = neg_fns[neg_split:]
 
 # set up train/val split folders
-os.mkdir('splits')
-
-os.makedirs('splits/train/pos')
-os.makedirs('splits/train/neg')
-os.makedirs('splits/val/pos')
-os.makedirs('splits/val/neg')
+mkdir_p('splits/train/pos')
+mkdir_p('splits/train/neg')
+mkdir_p('splits/val/pos')
+mkdir_p('splits/val/neg')
 
 # make symbolic links
 ln(train_pos, 'splits/train/pos')

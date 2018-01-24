@@ -2,6 +2,17 @@ import numpy as np
 from pylab import *
 from PIL import Image, ImageChops
 
+# progress bars https://github.com/tqdm/tqdm
+# import tqdm without enforcing it as a dependency
+try:
+    from tqdm import tqdm
+except ImportError:
+
+    def tqdm(*args, **kwargs):
+        if args:
+            return args[0]
+        return kwargs.get('iterable', None)
+
 RAW_WIDTH = 640
 RAW_HEIGHT = 480
 
@@ -28,13 +39,17 @@ def convert_pcd(path):
             f.readline()
             pass
         im = np.zeros((RAW_HEIGHT, RAW_WIDTH), dtype='f4')
-        for l in f:
-            d, i = l.split()[-2:]
-            d = float(d)
-            i = int(i)
-            x = i % RAW_WIDTH
-            y = i / RAW_WIDTH
-            im[y, x] = max(0., d)
+        try:
+            for index, l in enumerate(f):
+                    d, i = l.split()[-2:]
+                    d = float(d)
+                    i = int(i)
+                    x = i % RAW_WIDTH
+                    y = i / RAW_WIDTH
+                    im[y, x] = max(0., d)
+        except ValueError as e:
+            raise ValueError('failed on ' + path + 'line: ' +
+                             str(index + 11) + ' %s' % e)
         return im
 
 def crop_image(img, box, crop_size):

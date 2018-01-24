@@ -14,6 +14,20 @@ and we will learn/optimize each component using data collected on and off a robo
 
 ## datasets
 
+```
+train set
+{
+  1 : DoubleTensor - size: 6415x3x128x128
+  2 : DoubleTensor - size: 6415x1x128x128
+}
+validation set
+{
+  1 : DoubleTensor - size: 1604x3x128x128
+  2 : DoubleTensor - size: 1604x1x128x128
+}
+
+```
+
 ### training the grasp evaluator
 
 To train a reasonable grasp evaluator, we treated the evaluation problem as a binary classification task and used the publicly available [Cornell grasp dataset](http://pr.cs.cornell.edu/grasping/rect_data/data.php) to train off the robot. Here are some of statistics of this dataset:
@@ -27,10 +41,18 @@ To train a reasonable grasp evaluator, we treated the evaluation problem as a bi
 
 ## usage
 
+```
+python2 preprocess.py
+th prepareData.lua
+python2 train.py logs 64 10
+```
+
 ### use pre-trained models
 
 ### training
 
 
-## authors
+## authors / maintainers
+
 Falcon Dai (dai@ttic.edu)
+[Andrew Hundt](ATHundt@gmail.com)
